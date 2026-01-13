@@ -269,12 +269,13 @@ export const RepositoryLayout: React.FC<RepositoryLayoutProps> = ({ children, cl
         {/* 主内容区 - 优化布局 */}
         <main
           className={cn(
-            "h-full relative flex flex-col w-full bg-background overflow-hidden",
-            sidebarOpen ? "lg:ml-72" : "lg:ml-0"
+            "h-full relative flex flex-col bg-background overflow-hidden",
+            sidebarOpen ? "lg:ml-72" : "lg:ml-0",
+            isChatOpen ? "lg:w-1/2" : "lg:w-full"
           )}
           style={{
-            transition: 'margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-            willChange: 'margin-left'
+            transition: 'margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1), width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'margin-left, width'
           }}
         >
           {/* 悬浮的侧边栏切换按钮 - 优化动画 */}

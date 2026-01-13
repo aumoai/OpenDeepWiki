@@ -64,7 +64,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Auto scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Use setTimeout to ensure DOM has updated
+    const timer = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end',
+        inline: 'nearest'
+      })
+    }, 100)
+    return () => clearTimeout(timer)
   }, [messages, currentMessageContent, currentReasoning])
 
   // Show error toast
@@ -111,14 +119,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       {/* Panel */}
       <div
         className={cn(
-          'fixed top-0 right-0 h-full w-full lg:w-[480px] bg-card border-l shadow-xl z-50',
+          'fixed top-0 right-0 h-full w-full lg:w-1/2 bg-card border-l shadow-xl z-50',
           'transition-transform duration-300 ease-in-out',
+          'flex flex-col',
           isOpen ? 'translate-x-0' : 'translate-x-full',
           className
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
               <MessageSquare className="h-4 w-4 text-primary" />
@@ -156,8 +165,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         </div>
 
         {/* Messages Area */}
-        <ScrollArea className="h-[calc(100vh-180px)]">
-          <div className="p-4 space-y-4">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-4 py-4 space-y-4">
             {messages.length === 0 && !isStreaming && (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -194,7 +203,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                           Reasoning...
                         </span>
                       </div>
-                      <div className="text-xs text-muted-foreground font-mono whitespace-pre-wrap">
+                      <div className="text-xs text-muted-foreground font-mono whitespace-pre-wrap break-words" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {currentReasoning}
                       </div>
                     </div>
@@ -202,7 +211,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
                   {currentMessageContent && (
                     <div className="rounded-lg bg-muted/50 border px-4 py-2.5">
-                      <div className="text-sm whitespace-pre-wrap">
+                      <div className="text-sm whitespace-pre-wrap break-words" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {currentMessageContent}
                         <span className="inline-block w-1 h-4 ml-1 bg-current animate-pulse" />
                       </div>
@@ -219,14 +228,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               </div>
             )}
 
-            <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} className="h-4" />
           </div>
         </ScrollArea>
 
-        <Separator />
+        <Separator className="shrink-0" />
 
         {/* Input Area */}
-        <div className="p-4 bg-muted/30">
+        <div className="p-4 bg-muted/30 shrink-0">
           <ChatInput
             value={inputValue}
             onChange={setInputValue}

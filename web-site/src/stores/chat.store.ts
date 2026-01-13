@@ -248,7 +248,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             case SSEEventType.TOOL_CALL:
               const toolCall: ToolCall = {
                 id: event.tool_call_id,
-                functionName: event.function_name,
+                functionName: event.function_name || null,
                 arguments: event.function_arguments,
                 timestamp: Date.now()
               }

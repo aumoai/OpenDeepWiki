@@ -74,7 +74,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onDelete,
         )}
 
         {/* Message Content */}
-        <div className={cn('flex flex-col gap-2 max-w-[80%] relative', isUser && 'items-end')}>
+        <div className={cn('flex flex-col gap-2 max-w-[85%] relative', isUser && 'items-end')}>
           {/* Reasoning (Assistant only) */}
           {isAssistant && message.reasoning && (
             <ReasoningContent content={message.reasoning} />
@@ -105,17 +105,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onDelete,
             <div
               className={cn(
                 'rounded-lg px-4 py-2.5 relative group/message',
+                'overflow-hidden',
                 isUser
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted/50 text-foreground border'
               )}
             >
               {isUser ? (
-                <div className="text-sm whitespace-pre-wrap break-words">
+                <div 
+                  className="text-sm whitespace-pre-wrap break-words" 
+                  style={{ 
+                    wordBreak: 'break-word', 
+                    overflowWrap: 'anywhere',
+                    hyphens: 'auto'
+                  }}
+                >
                   {textContent}
                 </div>
               ) : (
-                <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 break-words" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   <EnhancedMessageContent content={textContent} />
                 </div>
               )}

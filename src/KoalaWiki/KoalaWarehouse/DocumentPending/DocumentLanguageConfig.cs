@@ -12,11 +12,17 @@ public static class DocumentLanguageConfig
     /// </summary>
     public static string GetLanguageSetting()
     {
-        // 优先级: 环境变量 > 缓存值 > 默认值
+        // 优先级: 缓存值 > DOC_LANGUAGE环境变量 > LANGUAGE环境变量 > 默认值
         if (_defaultLanguage != null)
             return _defaultLanguage;
 
         var envLanguage = Environment.GetEnvironmentVariable("DOC_LANGUAGE")?.Trim();
+
+        if (string.IsNullOrEmpty(envLanguage))
+        {
+            // 如果DOC_LANGUAGE未设置，尝试使用LANGUAGE环境变量作为回退
+            envLanguage = Environment.GetEnvironmentVariable("LANGUAGE")?.Trim();
+        }
 
         if (!string.IsNullOrEmpty(envLanguage))
         {

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using System.Text.Json.Nodes;
 using KoalaWiki.Domains.MCP;
 using KoalaWiki.Tools;
 using ModelContextProtocol.Server;
@@ -9,14 +10,14 @@ namespace KoalaWiki.MCP.Tools;
 public class McpAgentTool
 {
     /// <summary>
-    /// 生成仓库文档
+    /// Answer questions about the repository based on its documentation and code
     /// </summary>
     /// <param name="server"></param>
     /// <param name="question"></param>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
-    [McpServerTool(Name = "GenerateWiki")]
-    public static async Task<string> GenerateDocumentAsync(
+    [McpServerTool(Name = "ask_repository")]
+    public static async Task<string> AskRepositoryAsync(
         McpServer server,
         string question)
     {
@@ -24,8 +25,10 @@ public class McpAgentTool
 
         var koala = scope.ServiceProvider.GetRequiredService<IKoalaWikiContext>();
 
-        var name = server.ServerOptions.Capabilities!.Experimental["name"].ToString();
-        var owner = server.ServerOptions.Capabilities!.Experimental["owner"].ToString();
+        // Read from nested koalawiki JsonObject in experimental capabilities
+        var koalawiki = (JsonObject)server.ServerOptions.Capabilities!.Experimental!["koalawiki"];
+        var name = koalawiki["name"]!.GetValue<string>();
+        var owner = koalawiki["owner"]!.GetValue<string>();
 
         var warehouse = await koala.Warehouses
             .AsNoTracking()

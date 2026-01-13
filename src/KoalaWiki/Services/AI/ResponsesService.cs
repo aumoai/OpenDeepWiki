@@ -324,6 +324,12 @@ public class ResponsesService(IKoalaWikiContext koala) : FastApi
                 // 工具调用更新
                 foreach (var toolCallUpdate in message.ToolCallUpdates)
                 {
+                    // Only send tool call events when FunctionName is available
+                    if (string.IsNullOrEmpty(toolCallUpdate.FunctionName))
+                    {
+                        continue;
+                    }
+                    
                     var toolCallData = new
                     {
                         type = "tool_call",

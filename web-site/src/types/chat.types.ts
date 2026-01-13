@@ -53,7 +53,7 @@ export interface SSEMessageEndEvent {
 export interface SSEToolCallEvent {
   type: SSEEventType.TOOL_CALL
   tool_call_id: string
-  function_name: string
+  function_name: string | null
   function_arguments: string
 }
 
@@ -118,7 +118,7 @@ export interface ChatMessage {
 // Tool Call
 export interface ToolCall {
   id: string
-  functionName: string
+  functionName: string | null
   arguments: string
   timestamp: number
 }

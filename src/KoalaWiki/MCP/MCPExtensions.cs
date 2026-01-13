@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using KoalaWiki.MCP.Tools;
 using KoalaWiki.Mem0;
 using KoalaWiki.Tools;
@@ -37,11 +38,18 @@ public static class McpExtensions
                     serverOptions.InitializationTimeout = TimeSpan.FromSeconds(600);
                     serverOptions.Capabilities = new ServerCapabilities
                     {
-                        Experimental = new Dictionary<string, object>()
+                        // Store warehouse info in Experimental using JsonObject for proper serialization
+                        // MCP spec requires experimental values to be objects, not primitives
+                        Experimental = new Dictionary<string, object>
+                        {
+                            ["koalawiki"] = new JsonObject
+                            {
+                                ["owner"] = owner,
+                                ["name"] = name,
+                                ["warehouseId"] = warehouse.Id
+                            }
+                        }
                     };
-                    serverOptions.Capabilities.Experimental.Add("owner", owner);
-                    serverOptions.Capabilities.Experimental.Add("name", name);
-                    serverOptions.Capabilities.Experimental.Add("warehouseId", warehouse.Id);
 
 
                     serverOptions.Capabilities.Tools = new();
@@ -82,12 +90,12 @@ public static class McpExtensions
         {
             try
             {
-                if (method.Name == "GenerateDocumentAsync")
+                if (method.Name == "AskRepositoryAsync")
                 {
                     var tool = McpServerTool.Create(method, target: null, new McpServerToolCreateOptions()
                     {
                         Description =
-                            $"Generate detailed technical documentation for the {owner}/{name} GitHub repository based on user inquiries. Analyzes repository structure, code components, APIs, dependencies, and implementation patterns to create comprehensive developer documentation with troubleshooting guides, architecture explanations, customization options, and implementation insights."
+                            $"Ask questions about the {owner}/{name} repository and get detailed answers based on its code and documentation. Use this to understand how the project works, find specific implementations, learn about APIs, troubleshoot issues, or get explanations about any aspect of the codebase."
                     });
                     tools.Add(tool);
                 }

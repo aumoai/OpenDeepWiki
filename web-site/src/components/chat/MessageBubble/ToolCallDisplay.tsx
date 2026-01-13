@@ -25,10 +25,14 @@ export const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({ toolCall, clas
 
   // Get icon based on function name
   const getIcon = () => {
-    if (toolCall.functionName.toLowerCase().includes('code')) {
+    if (!toolCall.functionName) {
+      return <Wrench className="h-4 w-4" />
+    }
+    const functionNameLower = toolCall.functionName.toLowerCase()
+    if (functionNameLower.includes('code')) {
       return <Code className="h-4 w-4" />
     }
-    if (toolCall.functionName.toLowerCase().includes('file')) {
+    if (functionNameLower.includes('file')) {
       return <FileCode className="h-4 w-4" />
     }
     return <Wrench className="h-4 w-4" />
@@ -48,7 +52,7 @@ export const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({ toolCall, clas
                 {getIcon()}
               </div>
               <span className="text-sm font-medium">
-                Tool Call: {toolCall.functionName}
+                Tool Call: {toolCall.functionName || 'Unknown'}
               </span>
             </div>
             <Badge variant="outline" className="text-xs">
@@ -65,7 +69,7 @@ export const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({ toolCall, clas
                   Function:
                 </span>
                 <code className="ml-2 text-xs font-mono text-foreground">
-                  {toolCall.functionName}
+                  {toolCall.functionName || 'Unknown'}
                 </code>
               </div>
 

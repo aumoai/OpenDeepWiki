@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Mem0.NET;
 using ModelContextProtocol.Server;
 
@@ -33,7 +34,9 @@ public class RagTool(string? warehouseId = null)
             "Minimum relevance threshold for vector search results, ranging from 0 to 1. Default is 0.3. Higher values (e.g., 0.7) return more precise matches, while lower values provide more varied results.")]
         double minRelevance = 0.3)
     {
-        var warehouseId = server.ServerOptions.Capabilities!.Experimental["warehouseId"].ToString();
+        // Read from nested koalawiki JsonObject in experimental capabilities
+        var koalawiki = (JsonObject)server.ServerOptions.Capabilities!.Experimental!["koalawiki"];
+        var warehouseId = koalawiki["warehouseId"]!.GetValue<string>();
         var result = await Mem0Client.SearchAsync(new SearchRequest()
         {
             Query = query,
