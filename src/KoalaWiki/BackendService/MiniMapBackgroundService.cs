@@ -3,14 +3,14 @@
 namespace KoalaWiki.BackendService;
 
 /// <summary>
-/// 思维导图服务生成
+/// Mind map service generation
 /// </summary>
 /// <param name="service"></param>
 public sealed class MiniMapBackgroundService(IServiceProvider service) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(1000, stoppingToken); // 等待服务启动完成
+        await Task.Delay(1000, stoppingToken); // Wait for service startup to complete
 
         using var scope = service.CreateScope();
 
@@ -25,7 +25,7 @@ public sealed class MiniMapBackgroundService(IServiceProvider service) : Backgro
                     .Select(m => m.WarehouseId)
                     .ToListAsync(stoppingToken);
 
-                // 查询需要生成知识图谱的仓库
+                // Query warehouses that need knowledge graph generation
                 var query = context.Warehouses
                     .Where(w => w.Status == WarehouseStatus.Completed && !existingMiniMapIds.Contains(w.Id))
                     .OrderBy(w => w.CreatedAt)
@@ -34,16 +34,16 @@ public sealed class MiniMapBackgroundService(IServiceProvider service) : Backgro
                 var item = await query.FirstOrDefaultAsync(stoppingToken);
                 if (item == null)
                 {
-                    await Task.Delay(10000, stoppingToken); // 等待10秒后重试
+                    await Task.Delay(10000, stoppingToken); // Wait 10 seconds before retry
                     continue;
                 }
 
-                Log.Logger.Information("开始生成知识图谱，共有 {Count} 个仓库需要处理",
+                Log.Logger.Information("Starting knowledge graph generation, {Count} warehouses need processing",
                     await query.CountAsync(cancellationToken: stoppingToken));
 
                 try
                 {
-                    Log.Logger.Information("开始处理仓库 {WarehouseName}", item.Name);
+                    Log.Logger.Information("Starting to process warehouse {WarehouseName}", item.Name);
 
                     var document = await context.Documents
                         .Where(d => d.WarehouseId == item.Id)
@@ -61,22 +61,22 @@ public sealed class MiniMapBackgroundService(IServiceProvider service) : Backgro
                             Id = Guid.NewGuid().ToString("N")
                         });
                         await context.SaveChangesAsync(stoppingToken);
-                        Log.Logger.Information("仓库 {WarehouseName} 的知识图谱生成成功", item.Name);
+                        Log.Logger.Information("Knowledge graph generation succeeded for warehouse {WarehouseName}", item.Name);
                     }
                     else
                     {
-                        Log.Logger.Warning("仓库 {WarehouseName} 的知识图谱生成失败", item.Name);
+                        Log.Logger.Warning("Knowledge graph generation failed for warehouse {WarehouseName}", item.Name);
                     }
                 }
                 catch (Exception e)
                 {
-                    Log.Logger.Error(e, "处理仓库 {WarehouseName} 时发生异常", item.Name);
+                    Log.Logger.Error(e, "Exception occurred while processing warehouse {WarehouseName}", item.Name);
                 }
             }
             catch (Exception e)
             {
-                await Task.Delay(10000, stoppingToken); // 等待1秒后重试
-                Log.Logger.Error("MiniMapBackgroundService 执行异常: {Message}", e.Message);
+                await Task.Delay(10000, stoppingToken); // Wait 10 seconds before retry
+                Log.Logger.Error("MiniMapBackgroundService execution exception: {Message}", e.Message);
             }
         }
     }

@@ -15,7 +15,7 @@ public static class Prompt
             _language = language;
         }
         
-        Console.WriteLine("当前语言环境：" + _language);
+        Console.WriteLine("Language：" + _language);
     }
 
     public static string Language => $"\nNote: You must reply in {_language}.\n";

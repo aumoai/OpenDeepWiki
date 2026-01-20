@@ -16,11 +16,11 @@ public class WarehouseTask(
     {
         if (!DocumentOptions.EnableWiki)
         {
-            logger.LogInformation("Wiki功能未启用，仓库处理任务停止运行。");
+            logger.LogInformation("Wiki feature is not enabled, warehouse processing task stopped.");
             return;
         }
 
-        // 读取现有的仓库
+        // Read existing warehouses
         await Task.Delay(1000, stoppingToken);
 
         await using var scope = service.CreateAsyncScope();
@@ -30,18 +30,18 @@ public class WarehouseTask(
         {
             var value = await dbContext!.Warehouses
                 .Where(x => x.Status == WarehouseStatus.Pending || x.Status == WarehouseStatus.Processing)
-                // 处理中优先
+                // Processing priority
                 .OrderByDescending(x => x.Status == WarehouseStatus.Processing)
                 .FirstOrDefaultAsync(stoppingToken);
 
             if (value == null)
             {
-                // 如果没有仓库，等待一段时间
+                // If no warehouses, wait for a while
                 await Task.Delay(1000 * 5, stoppingToken);
                 continue;
             }
 
-            using var activity = SActivitySource.CreateActivity("仓库处理任务", ActivityKind.Server);
+            using var activity = SActivitySource.CreateActivity("Warehouse Processing Task", ActivityKind.Server);
             activity?.SetTag("warehouse.id", value.Id);
             activity?.SetTag("warehouse.name", value.Name);
             activity?.SetTag("warehouse.type", value.Type);
@@ -59,12 +59,12 @@ public class WarehouseTask(
                     activity?.SetTag("git.has_username", !string.IsNullOrEmpty(value?.GitUserName));
                     activity?.SetTag("git.has_password", !string.IsNullOrEmpty(value?.GitPassword));
 
-                    // 先拉取仓库
-                    logger.LogInformation("开始拉取仓库：{Address}", value.Address);
+                    // First pull the repository
+                    logger.LogInformation("Starting repository pull: {Address}", value.Address);
                     var info = GitService.CloneRepository(value.Address, value?.GitUserName ?? string.Empty,
                         value?.GitPassword ?? string.Empty, value?.Branch);
 
-                    logger.LogInformation("仓库拉取完成：{RepositoryName}, 分支：{BranchName}", info.RepositoryName,
+                    logger.LogInformation("Repository pull completed: {RepositoryName}, branch: {BranchName}", info.RepositoryName,
                         info.BranchName);
 
                     activity?.SetTag("git.repository_name", info.RepositoryName);
@@ -73,7 +73,7 @@ public class WarehouseTask(
                     activity?.SetTag("git.version", info.Version);
                     activity?.SetTag("git.local_path", info.LocalPath);
 
-                    // 判断是否组织名称和项目名称为空
+                    // Check if organization name and project name are empty
                     if (string.IsNullOrEmpty(value.OrganizationName) && string.IsNullOrEmpty(value.Name))
                     {
                         await dbContext!.Warehouses.Where(x => x.Id == value.Id)
@@ -92,7 +92,7 @@ public class WarehouseTask(
                                     .SetProperty(x => x.Status, WarehouseStatus.Processing), stoppingToken);
                     }
 
-                    logger.LogInformation("更新仓库信息到数据库完成，仓库ID：{Id}", value.Id);
+                    logger.LogInformation("Warehouse information updated to database completed, warehouse ID: {Id}", value.Id);
 
                     if (await dbContext.Documents.AnyAsync(x => x.WarehouseId == value.Id, stoppingToken))
                     {
@@ -102,7 +102,7 @@ public class WarehouseTask(
                         document.GitPath = info.LocalPath;
                         document.LastUpdate = DateTime.UtcNow;
                         document.Status = WarehouseStatus.Processing;
-                        logger.LogInformation("获取现有文档记录，文档ID：{Id}", document.Id);
+                        logger.LogInformation("Retrieved existing document record, document ID: {Id}", document.Id);
                     }
                     else
                     {
@@ -115,16 +115,16 @@ public class WarehouseTask(
                             GitPath = info.LocalPath,
                             Status = WarehouseStatus.Pending
                         };
-                        logger.LogInformation("创建文档记录，文档ID：{Id}", document.Id);
+                        logger.LogInformation("Created document record, document ID: {Id}", document.Id);
                         await dbContext.Documents.AddAsync(document, stoppingToken);
-                        logger.LogInformation("添加新文档记录完成，文档ID：{Id}", document.Id);
+                        logger.LogInformation("Added new document record completed, document ID: {Id}", document.Id);
 
                         await dbContext.SaveChangesAsync(stoppingToken);
                     }
 
-                    logger.LogInformation("数据库更改保存完成，开始处理文档。");
+                    logger.LogInformation("Database changes saved, starting document processing.");
 
-                    // 调用文档处理服务，其Activity将作为当前Activity的子Activity
+                    // Call document processing service, its Activity will be a child of current Activity
                     await documentsService.HandleAsync(document, value, dbContext,
                         value.Address.Replace(".git", string.Empty)).ConfigureAwait(false);
                 }
@@ -136,13 +136,13 @@ public class WarehouseTask(
                         .ExecuteUpdateAsync(x => x.SetProperty(x => x.Status, WarehouseStatus.Processing),
                             stoppingToken);
 
-                    logger.LogInformation("更新仓库信息到数据库完成，仓库ID：{Id}", value.Id);
+                    logger.LogInformation("Warehouse information updated to database completed, warehouse ID: {Id}", value.Id);
 
                     if (await dbContext.Documents.AnyAsync(x => x.WarehouseId == value.Id, stoppingToken))
                     {
                         document = await dbContext.Documents.FirstAsync(x => x.WarehouseId == value.Id,
                             stoppingToken);
-                        logger.LogInformation("获取现有文档记录，文档ID：{Id}", document.Id);
+                        logger.LogInformation("Retrieved existing document record, document ID: {Id}", document.Id);
                     }
                     else
                     {
@@ -155,49 +155,49 @@ public class WarehouseTask(
                             GitPath = value.Address,
                             Status = WarehouseStatus.Pending
                         };
-                        logger.LogInformation("创建文档记录，文档ID：{Id}", document.Id);
+                        logger.LogInformation("Created document record, document ID: {Id}", document.Id);
                         await dbContext.Documents.AddAsync(document, stoppingToken);
-                        logger.LogInformation("添加新文档记录完成，文档ID：{Id}", document.Id);
+                        logger.LogInformation("Added new document record completed, document ID: {Id}", document.Id);
 
                         await dbContext.SaveChangesAsync(stoppingToken);
                     }
 
-                    logger.LogInformation("数据库更改保存完成，开始处理文档。");
+                    logger.LogInformation("Database changes saved, starting document processing.");
 
-                    // 调用文档处理服务，其Activity将作为当前Activity的子Activity
+                    // Call document processing service, its Activity will be a child of current Activity
                     await documentsService.HandleAsync(document, value, dbContext,
                         value.Address.Replace(".git", string.Empty)).ConfigureAwait(false);
                 }
                 else
                 {
-                    activity?.SetTag("error", "不支持的仓库类型");
-                    logger.LogError("不支持的仓库类型：{Type}", value.Type);
+                    activity?.SetTag("error", "Unsupported warehouse type");
+                    logger.LogError("Unsupported warehouse type: {Type}", value.Type);
                     await dbContext.Warehouses.Where(x => x.Id == value.Id)
                         .ExecuteUpdateAsync(x => x.SetProperty(a => a.Status, WarehouseStatus.Failed)
-                            .SetProperty(x => x.Error, "不支持的仓库类型"), stoppingToken);
+                            .SetProperty(x => x.Error, "Unsupported warehouse type"), stoppingToken);
 
-                    logger.LogInformation("更新仓库状态为失败，仓库地址：{address}", value.Address);
+                    logger.LogInformation("Updated warehouse status to failed, warehouse address: {address}", value.Address);
                     activity?.SetTag("warehouse.final_status", "failed");
                     return;
                 }
 
-                logger.LogInformation("文档处理完成，仓库地址：{address}", value.Address);
+                logger.LogInformation("Document processing completed, warehouse address: {address}", value.Address);
 
-                // 更新仓库状态为完成
+                // Update warehouse status to completed
                 activity?.SetTag("document.id", document.Id);
 
                 await dbContext.Warehouses.Where(x => x.Id == value.Id)
                     .ExecuteUpdateAsync(x => x.SetProperty(a => a.Status, WarehouseStatus.Completed)
                         .SetProperty(x => x.Error, string.Empty), stoppingToken);
 
-                logger.LogInformation("更新仓库状态为完成，仓库地址：{address}", value.Address);
+                logger.LogInformation("Updated warehouse status to completed, warehouse address: {address}", value.Address);
 
-                // 提交更改
+                // Commit changes
                 await dbContext.Documents.Where(x => x.Id == document.Id)
                     .ExecuteUpdateAsync(x => x.SetProperty(a => a.LastUpdate, DateTime.UtcNow)
                         .SetProperty(a => a.Status, WarehouseStatus.Completed), stoppingToken);
 
-                logger.LogInformation("文档状态更新为完成，仓库地址：{address}", value.Address);
+                logger.LogInformation("Document status updated to completed, warehouse address: {address}", value.Address);
 
                 activity?.SetTag("processing.success", true);
                 activity?.SetTag("warehouse.final_status", "completed");
@@ -209,7 +209,7 @@ public class WarehouseTask(
                 activity?.SetTag("error.occurred", true);
                 activity?.SetTag("warehouse.final_status", "failed");
 
-                logger.LogError("发生错误：{e}", e);
+                logger.LogError("An error occurred: {e}", e);
                 await Task.Delay(1000 * 5, stoppingToken);
 
                 await dbContext.Warehouses.Where(x => x.Id == value.Id)

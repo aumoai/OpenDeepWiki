@@ -9,22 +9,22 @@ namespace KoalaWiki.BackendService;
 public partial class WarehouseProcessingTask
 {
     /// <summary>
-    /// 生成更新日志
+    /// Generate update log
     /// </summary>
     public async Task<List<CommitResultDto>> GenerateUpdateLogAsync(string gitPath,
         Warehouse warehouse,
         string readme, string gitRepositoryUrl, string branch, IKoalaWikiContext koalaWikiContext)
     {
-        // 获取仓库上次最近更新时间
+        // Get warehouse last update time
         var records = await koalaWikiContext.DocumentCommitRecords
             .Where(x => x.WarehouseId == warehouse.Id)
-            // 获取最近的记录LastUpdate
+            // Get most recent record LastUpdate
             .OrderByDescending(x => x.LastUpdate).FirstOrDefaultAsync();
 
-        // 读取git log
+        // Read git log
         using var repo = new Repository(gitPath, new RepositoryOptions());
 
-        // 大于records的提交时间内容
+        // Commits with time greater than records
         var log = repo.Commits
             .Where(x => records == null || x.Committer.When > records?.LastUpdate)
             .OrderByDescending(x => x.Committer.When)
@@ -37,10 +37,10 @@ public partial class WarehouseProcessingTask
         string commitMessage = string.Empty;
         foreach (var commit in log)
         {
-            commitMessage += "提交人：" + commit.Committer.Name + "\n提交内容\n<message>\n" + commit.Message +
-                             "<message>";
+            commitMessage += "Committer: " + commit.Committer.Name + "\nCommit content\n<message>\n" + commit.Message +
+                             "</message>";
 
-            commitMessage += "\n提交时间：" + commit.Committer.When.ToString("yyyy-MM-dd HH:mm:ss") + "\n";
+            commitMessage += "\nCommit time: " + commit.Committer.When.ToString("yyyy-MM-dd HH:mm:ss") + "\n";
         }
 
         var plugin = kernel.Plugins["CodeAnalysis"]["CommitAnalyze"];
@@ -64,7 +64,7 @@ public partial class WarehouseProcessingTask
 
         if (match.Success)
         {
-            // 提取到的内容
+            // Extracted content
             str = match.Groups[1].Value;
         }
 

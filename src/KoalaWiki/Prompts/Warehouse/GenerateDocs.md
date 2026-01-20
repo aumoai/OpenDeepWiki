@@ -156,8 +156,13 @@ Quality rules for the draft:
 - Diagrams only when they add clarity; ensure alignment with text
 - Clarity and navigability over raw length; no placeholders
 
-## Phase 4: Strategic Enhancement (≤3 Docs.MultiEdit)
-Use up to three enhancement passes to maximize impact:
+## Phase 4: Strategic Enhancement (OPTIONAL - ≤3 Docs.MultiEdit)
+**Only use MultiEdit if there are actual improvements needed.** Do NOT call MultiEdit if:
+- The document is already complete and correct
+- You have no specific changes to make
+- You would call it with an empty edits array
+
+If enhancements ARE needed, use up to three passes:
 1) Technical Depth: add missing citations, refine critical flows, tighten explanations
 2) Visual Alignment: ensure diagrams match text; add/remove diagrams based on value
 3) Polish & Completeness: cross-reference sections; ensure task alignment; add concrete examples
@@ -166,6 +171,12 @@ After each MultiEdit, verify changes using Docs.Read before the next pass.
 </documentation_process>
 
 <tool_usage_guidelines>
+## Critical Tool Calling Requirements
+**MANDATORY: When calling ANY tool, you MUST ALWAYS provide the required arguments.**
+- NEVER call a tool with empty or missing arguments
+- ALWAYS include the full argument object with all required fields
+- Calling tools without arguments will cause API errors and task failure
+
 ## Tools Compliance (Hard Requirements)
 
 - Docs-only output:

@@ -12,11 +12,11 @@ public partial class WarehouseProcessingTask(IServiceProvider service, ILogger<W
 
         if (!DocumentOptions.EnableIncrementalUpdate)
         {
-            logger.LogWarning("增量更新未启用，跳过增量更新任务");
+            logger.LogWarning("Incremental update is not enabled, skipping incremental update task");
             return;
         }
 
-        // 读取环境变量，获取更新间隔
+        // Read environment variable to get update interval
         var updateInterval = 5;
         if (int.TryParse(Environment.GetEnvironmentVariable("UPDATE_INTERVAL"), out var interval))
         {
@@ -27,19 +27,19 @@ public partial class WarehouseProcessingTask(IServiceProvider service, ILogger<W
         {
             try
             {
-                // 1. 读取现有的仓库状态=2
+                // 1. Read existing warehouses with status=2
                 await using var scope = service.CreateAsyncScope();
 
                 var dbContext = scope.ServiceProvider.GetService<IKoalaWikiContext>();
 
-                // 读取现有的仓库状态=2，并且启用了同步，并且处理时间满足一星期
+                // Read existing warehouses with status=2, sync enabled, and processing time meets one week
                 var warehouse = await dbContext!.Warehouses
                     .Where(x => x.Status == WarehouseStatus.Completed && x.EnableSync)
                     .FirstOrDefaultAsync(stoppingToken);
 
                 if (warehouse == null)
                 {
-                    // 如果没有仓库，等待一段时间后重试
+                    // If no warehouses, wait for a while then retry
                     await Task.Delay(1000 * 60, stoppingToken);
                     continue;
                 }
@@ -50,7 +50,7 @@ public partial class WarehouseProcessingTask(IServiceProvider service, ILogger<W
 
                 var warehouseIds = documents.Select(x => x.WarehouseId).ToArray();
 
-                // 从这里得到了超过一星期没更新的仓库
+                // From here we get warehouses that haven't been updated for over a week
                 warehouse = await dbContext.Warehouses
                     .Where(x => warehouseIds.Contains(x.Id))
                     .FirstOrDefaultAsync(stoppingToken);
@@ -63,7 +63,7 @@ public partial class WarehouseProcessingTask(IServiceProvider service, ILogger<W
                 {
                     var document = documents.FirstOrDefault(x => x.WarehouseId == warehouse.Id);
 
-                    // 创建同步记录
+                    // Create sync record
                     var syncRecord = new WarehouseSyncRecord
                     {
                         Id = Guid.NewGuid().ToString(),
@@ -84,12 +84,12 @@ public partial class WarehouseProcessingTask(IServiceProvider service, ILogger<W
 
                         if (string.IsNullOrEmpty(commitId))
                         {
-                            // 同步失败，更新记录状态
+                            // Sync failed, update record status
                             syncRecord.Status = WarehouseSyncStatus.Failed;
                             syncRecord.EndTime = DateTime.UtcNow;
-                            syncRecord.ErrorMessage = "同步过程中未获取到新的提交ID";
+                            syncRecord.ErrorMessage = "Failed to get new commit ID during sync";
 
-                            // 更新git记录
+                            // Update git record
                             await dbContext.Documents
                                 .Where(x => x.WarehouseId == warehouse.Id)
                                 .ExecuteUpdateAsync(x => x.SetProperty(a => a.LastUpdate, DateTime.Now), stoppingToken);
@@ -98,12 +98,12 @@ public partial class WarehouseProcessingTask(IServiceProvider service, ILogger<W
                             return;
                         }
 
-                        // 同步成功，更新记录状态
+                        // Sync successful, update record status
                         syncRecord.Status = WarehouseSyncStatus.Success;
                         syncRecord.EndTime = DateTime.UtcNow;
                         syncRecord.ToVersion = commitId;
 
-                        // 更新git记录
+                        // Update git record
                         await dbContext.Documents
                             .Where(x => x.WarehouseId == warehouse.Id)
                             .ExecuteUpdateAsync(x => x.SetProperty(a => a.LastUpdate, DateTime.Now), stoppingToken);
@@ -115,7 +115,7 @@ public partial class WarehouseProcessingTask(IServiceProvider service, ILogger<W
                     }
                     catch (Exception ex)
                     {
-                        // 同步异常，更新记录状态
+                        // Sync exception, update record status
                         syncRecord.Status = WarehouseSyncStatus.Failed;
                         syncRecord.EndTime = DateTime.UtcNow;
                         syncRecord.ErrorMessage = ex.Message;
@@ -126,7 +126,7 @@ public partial class WarehouseProcessingTask(IServiceProvider service, ILogger<W
             }
             catch (Exception exception)
             {
-                logger.LogError(exception, "处理仓库失败");
+                logger.LogError(exception, "Failed to process warehouse");
 
                 await Task.Delay(1000 * 60, stoppingToken);
             }

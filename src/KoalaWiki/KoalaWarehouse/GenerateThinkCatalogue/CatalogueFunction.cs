@@ -39,7 +39,7 @@ public class CatalogueFunction
                                           - Use emojis only when explicitly requested by the user.
                                           """)]
     public string Write(
-        [Description("The complete documentation structure JSON")]
+        [Description("The complete documentation structure JSON. REQUIRED.")]
         string json)
     {
         Content = json;
@@ -72,7 +72,9 @@ public class CatalogueFunction
                                          - Returns the entire stored JSON string.
                                          - If empty, a system reminder is returned.
                                          """)]
-    public string Read()
+    public string Read(
+        [Description("Placeholder parameter for API compatibility. Always pass an empty string.")] 
+        string placeholder = "")
     {
         if (string.IsNullOrWhiteSpace(Content))
         {
@@ -101,6 +103,7 @@ public class CatalogueFunction
          - Each edit operates on the result of the previous edit
          - All edits must be valid for the operation to succeed - if any edit fails, none will be applied
          - This tool is ideal when you need to make several changes to different parts of the same file
+         - You MUST provide the edits array with at least one edit operation
 
          CRITICAL REQUIREMENTS:
          1. All edits follow the same requirements as the single Edit tool
@@ -118,8 +121,8 @@ public class CatalogueFunction
          - Use replace_all for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.
          """)]
     public string MultiEdit(
-        [Description("Array of edit operations to perform sequentially on")]
-        MultiEditInput[] edits)
+        [Description("Array of edit operations to perform sequentially. REQUIRED")]
+        MultiEditInput[]? edits)
     {
         if (string.IsNullOrWhiteSpace(Content))
         {

@@ -30,7 +30,7 @@ public static partial class GenerateThinkCatalogueService
         Exception? lastException = null;
         var consecutiveFailures = 0;
 
-        Log.Logger.Information("开始处理仓库：{path}，处理标题：{name}", path, warehouse.Name);
+        Log.Logger.Information("Starting warehouse processing: {path}, title: {name}", path, warehouse.Name);
 
         while (retryCount < MaxRetries)
         {
@@ -41,13 +41,13 @@ public static partial class GenerateThinkCatalogueService
 
                 if (result != null)
                 {
-                    Log.Logger.Information("成功处理仓库：{path}，处理标题：{name}，尝试次数：{retryCount}",
+                    Log.Logger.Information("Successfully processed warehouse: {path}, title: {name}, attempt: {retryCount}",
                         path, warehouse.Name, retryCount + 1);
                     return result;
                 }
 
                 // result为null也算失败，继续重试
-                Log.Logger.Warning("处理仓库返回空结果：{path}，处理标题：{name}，尝试次数：{retryCount}",
+                Log.Logger.Warning("Warehouse processing returned empty result: {path}, title: {name}, attempt: {retryCount}",
                     path, warehouse.Name, retryCount + 1);
                 consecutiveFailures++;
             }
@@ -57,13 +57,13 @@ public static partial class GenerateThinkCatalogueService
                 consecutiveFailures++;
                 var errorType = ClassifyError(ex);
 
-                Log.Logger.Warning("处理仓库失败：{path}，处理标题：{name}，尝试次数：{retryCount}，错误类型：{errorType}，错误：{error}",
+                Log.Logger.Warning("Warehouse processing failed: {path}, title: {name}, attempt: {retryCount}, error type: {errorType}, error: {error}",
                     path, warehouse.Name, retryCount + 1, errorType, ex.Message);
 
                 // 根据错误类型决定是否继续重试
                 if (!ShouldRetry(errorType, retryCount, consecutiveFailures))
                 {
-                    Log.Logger.Error("错误类型 {errorType} 不适合重试或达到最大重试次数，停止重试", errorType);
+                    Log.Logger.Error("Error type {errorType} is not suitable for retry or max retries reached, stopping retry", errorType);
                     break;
                 }
             }
@@ -73,21 +73,21 @@ public static partial class GenerateThinkCatalogueService
             if (retryCount < MaxRetries)
             {
                 var delay = CalculateDelay(retryCount, consecutiveFailures);
-                Log.Logger.Information("等待 {delay}ms 后进行第 {nextAttempt} 次尝试", delay, retryCount + 1);
+                Log.Logger.Information("Waiting {delay}ms before attempt {nextAttempt}", delay, retryCount + 1);
                 await Task.Delay(delay);
 
                 // 如果连续失败过多，尝试重置某些状态
                 if (consecutiveFailures >= 3)
                 {
-                    Log.Logger.Information("连续失败 {consecutiveFailures} 次，尝试重置状态", consecutiveFailures);
+                    Log.Logger.Information("Consecutive failures: {consecutiveFailures}, attempting to reset state", consecutiveFailures);
                     // 可以在这里添加一些重置逻辑，比如清理缓存等
                     await Task.Delay(2000); // 额外等待
                 }
             }
         }
 
-        Log.Logger.Error("处理仓库最终失败：{path}，处理标题：{name}，总尝试次数：{totalAttempts}，最后错误：{error}",
-            path, warehouse.Name, retryCount, lastException?.Message ?? "未知错误");
+        Log.Logger.Error("Warehouse processing finally failed: {path}, title: {name}, total attempts: {totalAttempts}, last error: {error}",
+            path, warehouse.Name, retryCount, lastException?.Message ?? "Unknown error");
 
         return null;
     }
@@ -106,6 +106,13 @@ public static partial class GenerateThinkCatalogueService
             new Microsoft.Extensions.AI.TextContent(
                 $"""
                  <system-reminder>
+                 <critical_tool_calling_requirements>
+                 **MANDATORY: When calling ANY tool, you MUST ALWAYS provide the required arguments.**
+                 - NEVER call a tool with empty or missing arguments
+                 - ALWAYS include the full argument object with all required fields
+                 - Calling tools without arguments will cause errors
+                 </critical_tool_calling_requirements>
+
                  <catalog_tool_usage_guidelines>
                  **PARALLEL READ OPERATIONS**
                  - MANDATORY: Always perform PARALLEL File.Read calls — batch multiple files in a SINGLE message for maximum efficiency
@@ -201,7 +208,7 @@ public static partial class GenerateThinkCatalogueService
             retry++;
             if (retry <= 3)
             {
-                Console.WriteLine($"超时，正在重试 ({retry}/3)...");
+                Console.WriteLine($"Timeout, retrying ({retry}/3)...");
                 await Task.Delay(2000, CancellationToken.None);
 
                 // 正确地重置超时令牌
@@ -210,11 +217,11 @@ public static partial class GenerateThinkCatalogueService
                 goto retry;
             }
 
-            throw new TimeoutException("流式处理超时");
+            throw new TimeoutException("Streaming processing timeout");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"流式处理错误: {ex.Message}");
+            Console.WriteLine($"Streaming processing error: {ex.Message}");
             throw;
         }
         finally

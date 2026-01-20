@@ -21,20 +21,20 @@ public partial class WarehouseProcessingTask
     {
         try
         {
-            logger.LogInformation("步骤1: 开始更新仓库 {GitPath}", document.GitPath);
+            logger.LogInformation("Step 1: Starting warehouse update {GitPath}", document.GitPath);
 
-            // 1. 更新仓库
+            // 1. Update warehouse
             var (commits, commitId) = GitService.PullRepository(document.GitPath, warehouse.Version,
                 warehouse.Branch, warehouse.GitUserName, warehouse.GitPassword);
 
-            logger.LogInformation("仓库更新完成，获取到 {CommitCount} 个提交记录", commits?.Count ?? 0);
+            logger.LogInformation("Warehouse update completed, retrieved {CommitCount} commit records", commits?.Count ?? 0);
             if (commits == null || commits.Count == 0)
             {
-                logger.LogInformation("没有更新的提交记录");
+                logger.LogInformation("No new commit records");
                 return string.Empty;
             }
 
-            // 得到更新内容和更新文件
+            // Get update content and updated files
             var commitPrompt = new StringBuilder();
             if (commits is { Count: > 0 })
             {
@@ -43,7 +43,7 @@ public partial class WarehouseProcessingTask
                 foreach (var commitItem in commits.Select(commit => repo.Lookup<Commit>(commit.Sha)))
                 {
                     commitPrompt.AppendLine($"<commit>\n{commitItem.Message}");
-                    // 获取当前更新的文件列表
+                    // Get list of currently updated files
                     if (commitItem.Parents.Any())
                     {
                         var parent = commitItem.Parents.First();
@@ -60,23 +60,23 @@ public partial class WarehouseProcessingTask
             }
             else
             {
-                logger.LogInformation("没有更新的提交记录");
+                logger.LogInformation("No new commit records");
 
-                // 如果没有更新的提交记录，直接返回
+                // If there are no new commit records, return directly
                 return string.Empty;
             }
 
 
-            logger.LogInformation("步骤2: 获取文档目录");
+            logger.LogInformation("Step 2: Getting document catalog");
             var catalogues = await dbContext.DocumentCatalogs
                 .AsNoTracking()
                 .Where(x => x.WarehouseId == warehouse.Id)
                 .ToListAsync();
-            logger.LogInformation("获取到 {CatalogCount} 个目录项", catalogues.Count);
+            logger.LogInformation("Retrieved {CatalogCount} catalog items", catalogues.Count);
 
-            logger.LogInformation("步骤3: 创建内核并准备分析");
+            logger.LogInformation("Step 3: Creating kernel and preparing analysis");
 
-            // 先得到树形结构
+            // First get the tree structure
             var kernel = await KernelFactory.GetKernel(OpenAIOptions.Endpoint,
                 OpenAIOptions.ChatApiKey, document.GitPath, OpenAIOptions.ChatModel, false);
 
@@ -92,26 +92,26 @@ public partial class WarehouseProcessingTask
 
             history.AddUserMessage(prompt);
 
-            logger.LogInformation("步骤4: 开始执行AI分析");
+            logger.LogInformation("Step 4: Starting AI analysis");
 
             var st = new StringBuilder();
 
-            // 使用 Polly 创建重试策略
+            // Use Polly to create retry policy
             var retryPolicy = Policy
-                .Handle<Exception>() // 处理所有异常
+                .Handle<Exception>() // Handle all exceptions
                 .WaitAndRetryAsync(
-                    retryCount: 3, // 最大重试次数
-                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // 指数退避策略
+                    retryCount: 3, // Maximum retry count
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // Exponential backoff strategy
                     onRetry: (exception, timeSpan, retryCount, context) =>
                     {
-                        logger.LogWarning("第 {RetryCount} 次重试分析", retryCount);
-                        logger.LogError(exception, "AI分析失败 (尝试 {RetryCount}/3): {ErrorMessage}",
+                        logger.LogWarning("Retry analysis attempt {RetryCount}", retryCount);
+                        logger.LogError(exception, "AI analysis failed (attempt {RetryCount}/3): {ErrorMessage}",
                             retryCount, exception.Message);
-                        logger.LogInformation("等待 {Delay} 秒后重试", timeSpan.TotalSeconds);
+                        logger.LogInformation("Waiting {Delay} seconds before retry", timeSpan.TotalSeconds);
                     }
                 );
 
-            // 执行带有重试策略的异步操作
+            // Execute async operation with retry policy
             var result = await retryPolicy.ExecuteAsync(async () =>
             {
                 st.Clear();
@@ -129,9 +129,9 @@ public partial class WarehouseProcessingTask
                     }
                 }
 
-                logger.LogInformation("AI分析成功完成");
+                logger.LogInformation("AI analysis completed successfully");
 
-                // 正则表达式提取<document_structure></document_structure>
+                // Extract <document_structure></document_structure> using regex
                 var regex = new Regex(@"<document_structure>(.*?)</document_structure>", RegexOptions.Singleline);
                 var match = regex.Match(st.ToString());
                 if (match.Success)
@@ -140,7 +140,7 @@ public partial class WarehouseProcessingTask
                     st.Append(match.Groups[1].Value);
                 }
 
-                // 正则表达式提取```json
+                // Extract ```json using regex
                 var jsonRegex = new Regex(@"```json(.*?)```", RegexOptions.Singleline);
                 var jsonMatch = jsonRegex.Match(st.ToString());
                 if (jsonMatch.Success)
@@ -149,15 +149,15 @@ public partial class WarehouseProcessingTask
                     st.Append(jsonMatch.Groups[1].Value);
                 }
 
-                // 解析
+                // Parse
                 var result = JsonConvert.DeserializeObject<WareHouseCatalogue>(st.ToString());
 
                 return result;
             });
 
-            logger.LogInformation("步骤5: 处理分析结果，长度为 {ResultLength} 字符", st.Length);
+            logger.LogInformation("Step 5: Processing analysis results, length: {ResultLength} characters", st.Length);
 
-            // 这里可以继续处理分析结果
+            // Can continue processing analysis results here
 
             await dbContext.DocumentCatalogs.Where(x => result.delete_id.Contains(x.Id))
                 .ExecuteUpdateAsync(x =>
@@ -168,13 +168,13 @@ public partial class WarehouseProcessingTask
             var documents = new List<(WareHouseCatalogueType, DocumentCatalog)>();
             ProcessCatalogueItems(result.items.ToList(), null, warehouse, document, documents);
 
-            logger.LogInformation("步骤6: 更新文档目录");
+            logger.LogInformation("Step 6: Updating document catalog");
 
             foreach (var tuple in documents)
             {
                 if (tuple.Item1 == WareHouseCatalogueType.Update)
                 {
-                    // 需要先删除现有的
+                    // Need to delete existing first
                     await dbContext.DocumentCatalogs
                         .Where(x => x.WarehouseId == warehouse.Id && x.Id == tuple.Item2.Id)
                         .ExecuteUpdateAsync(x => x.SetProperty(a => a.IsDeleted, true)
@@ -198,7 +198,7 @@ public partial class WarehouseProcessingTask
                 document.GetCatalogueSmartFilterOptimized(),
                 warehouse.Address, warehouse, document.GitPath, dbContext, warehouse.Classify);
 
-            logger.LogInformation("仓库 {WarehouseName} 分析完成", warehouse.Name);
+            logger.LogInformation("Warehouse {WarehouseName} analysis completed", warehouse.Name);
 
             var readme = await DocumentsHelper.ReadMeFile(document.GitPath);
 
@@ -223,7 +223,7 @@ public partial class WarehouseProcessingTask
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "仓库分析过程中发生异常: {ErrorMessage}", ex.Message);
+            logger.LogError(ex, "Exception occurred during warehouse analysis: {ErrorMessage}", ex.Message);
             throw;
         }
     }
@@ -233,7 +233,7 @@ public partial class WarehouseProcessingTask
         Warehouse warehouse,
         Document document, List<(WareHouseCatalogueType, DocumentCatalog)>? documents)
     {
-        int order = 0; // 创建排序计数器
+        int order = 0; // Create sorting counter
         foreach (var item in items)
         {
             item.title = item.title.Replace(" ", "");
@@ -247,7 +247,7 @@ public partial class WarehouseProcessingTask
                 DucumentId = document.Id,
                 ParentId = parentId,
                 Prompt = item.prompt,
-                Order = order++ // 为当前层级的每个项目设置顺序值并递增
+                Order = order++ // Set order value for each item at current level and increment
             };
             if (item.type == "update")
             {

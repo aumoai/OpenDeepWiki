@@ -81,8 +81,8 @@ public class FileTool(string gitPath, List<string>? files)
          """)]
     public async Task<string> ReadFileFromLineAsync(
         [Description(
-            "The Read File")]
-        ReadFileItemInput? item)
+            "The Read File. REQUIRED.")]
+        ReadFileItemInput? item = null)
     {
         // 检查是否已达到文件读取限制
         if (DocumentOptions.ReadMaxTokens > 0 &&
@@ -97,6 +97,11 @@ public class FileTool(string gitPath, List<string>? files)
                    "• Focus on generating final documentation\n" +
                    "Continued file reading will impact system performance and may violate usage policies.\n" +
                    "</system-reminder>";
+        }
+
+        if (item == null || string.IsNullOrEmpty(item.FilePath))
+        {
+            return "<system-reminder>Error: filePath is required. Please provide a valid file path.</system-reminder>";
         }
 
         return await ReadItem(item.FilePath, item.Offset, item.Limit);

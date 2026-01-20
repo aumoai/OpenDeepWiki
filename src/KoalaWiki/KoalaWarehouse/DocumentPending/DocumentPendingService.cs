@@ -75,8 +75,8 @@ public partial class DocumentPendingService
                 if (fileItem == null || string.IsNullOrEmpty(fileItem.Content))
                 {
                     // 构建失败
-                    Log.Logger.Error("处理仓库；{path} ,处理标题：{name} 失败:文件内容为空", path, catalog.Name);
-                    throw new Exception("处理失败，文件内容为空: " + catalog.Name);
+                Log.Logger.Error("Processing warehouse failed: {path}, title: {name}, reason: file content is empty", path, catalog.Name);
+                throw new Exception("Processing failed, file content is empty: " + catalog.Name);
                 }
 
                 // 更新文档状态
@@ -99,11 +99,11 @@ public partial class DocumentPendingService
 
                 await dbContext.SaveChangesAsync();
 
-                Log.Logger.Information("处理仓库；{path}, 处理标题：{name} 完成并保存到数据库！", path, catalog.Name);
+                Log.Logger.Information("Processing warehouse completed and saved to database: {path}, title: {name}", path, catalog.Name);
             }
             catch (Exception ex)
             {
-                Log.Logger.Error("处理文档失败: {ex}", ex.ToString());
+                Log.Logger.Error("Document processing failed: {ex}", ex.ToString());
             }
         }
     }
@@ -139,7 +139,7 @@ public partial class DocumentPendingService
                 try
                 {
 
-                Log.Logger.Information("处理仓库；{path} ,处理标题：{name}", path, catalog.Name);
+                Log.Logger.Information("Processing warehouse: {path}, title: {name}", path, catalog.Name);
 
                 DocumentContext.DocumentStore = new DocumentStore();
 
@@ -243,12 +243,12 @@ public partial class DocumentPendingService
                 int count = 1;
                 int inputTokenCount = 0;
                 int outputTokenCount = 0;
-                int maxRetries = 3;
+                int maxRetries = 5;
                 reset:
 
                 try
                 {
-                    Console.WriteLine($"开始处理文档 (尝试 {count}/{maxRetries + 1})，超时设置: 30分钟");
+                    Console.WriteLine($"Starting document processing (attempt {count}/{maxRetries + 1}), timeout: 30 minutes");
 
                     try
                     {
@@ -264,23 +264,23 @@ public partial class DocumentPendingService
                             }
                         }
 
-                        // 处理完成
-                        Console.WriteLine($"\n文档处理完成! 最终Token统计 - 输入: {inputTokenCount}, 输出: {outputTokenCount}");
+                        // Processing complete
+                        Console.WriteLine($"\nDocument processing complete! Final token statistics - Input: {inputTokenCount}, Output: {outputTokenCount}");
 
                         // 检查是否实际接收到了内容
                         if (!hasReceivedContent)
                         {
-                            Console.WriteLine("警告: 没有接收到任何流式内容");
+                            Console.WriteLine("Warning: No streaming content received");
                         }
                     }
                     catch (OperationCanceledException)
                     {
-                        Console.WriteLine("操作被取消 (超时或手动取消)");
+                        Console.WriteLine("Operation cancelled (timeout or manual cancellation)");
 
                         count++;
                         if (count <= maxRetries)
                         {
-                            Console.WriteLine($"正在重试... ({count}/{maxRetries})");
+                            Console.WriteLine($"Retrying... ({count}/{maxRetries})");
 
                             // 指数退避延迟
                             var delayMs = Math.Min(1000 * (int)Math.Pow(2, count - 1), 10000); // 最大10秒
@@ -290,39 +290,41 @@ public partial class DocumentPendingService
                         }
                         else
                         {
-                            Console.WriteLine("已达到最大重试次数，处理失败");
-                            throw new TimeoutException($"文档处理在 {maxRetries} 次重试后仍然超时");
+                            Console.WriteLine("Maximum retry attempts reached, processing failed");
+                            throw new TimeoutException($"Document processing timed out after {maxRetries} retry attempts");
                         }
                     }
                     catch (HttpRequestException httpEx)
                     {
-                        Console.WriteLine($"网络错误: {httpEx.Message}");
+                        Console.WriteLine($"Network error: {httpEx.Message}");
 
                         count++;
                         if (count <= maxRetries)
                         {
-                            Console.WriteLine($"网络错误，正在重试... ({count}/{maxRetries})");
+                            Console.WriteLine($"Network error, retrying... ({count}/{maxRetries})");
 
                             // 网络错误时增加延迟
                             await Task.Delay(3000 * count, CancellationToken.None);
                             goto reset;
                         }
 
-                        Console.WriteLine("网络错误重试失败");
+                        Console.WriteLine("Network error retry failed");
                         throw;
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"处理流式响应时发生未知错误: {ex.Message}");
-                        Console.WriteLine($"异常类型: {ex.GetType().Name}");
-                        Console.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+                        Console.WriteLine($"Unknown error occurred while processing streaming response: {ex.Message}");
+                        Console.WriteLine($"Exception type: {ex.GetType().Name}");
+                        Console.WriteLine($"Stack trace: {ex.StackTrace}");
 
                         // 对于未知错误，也可以尝试重试一次
                         count++;
                         if (count <= maxRetries)
                         {
-                            Console.WriteLine($"未知错误，尝试重试... ({count}/{maxRetries})");
-                            await Task.Delay(5000, CancellationToken.None); // 5秒延迟
+                            // Exponential backoff for 500 errors (likely rate limiting or overload)
+                            var delayMs = Math.Min(5000 * (int)Math.Pow(2, count - 1), 60000); // Max 60 seconds
+                            Console.WriteLine($"Unknown error, retrying... ({count}/{maxRetries}), waiting {delayMs/1000} seconds");
+                            await Task.Delay(delayMs, CancellationToken.None);
                             goto reset;
                         }
 
@@ -331,7 +333,7 @@ public partial class DocumentPendingService
                 }
                 finally
                 {
-                    Console.WriteLine("资源清理完成");
+                    Console.WriteLine("Resource cleanup complete");
                 }
 
                 if (string.IsNullOrEmpty(docs.Content) && count < 5)
@@ -357,18 +359,18 @@ public partial class DocumentPendingService
                     Title = catalog.Name,
                 };
 
-                Log.Logger.Information("处理仓库；{path} ,处理标题：{name} 完成！", path, catalog.Name);
+                Log.Logger.Information("Processing warehouse completed: {path}, title: {name}", path, catalog.Name);
 
                     return (catalog, fileItem, files);
                 }
                 catch (Exception ex)
                 {
-                    Log.Logger.Error("处理仓库；{path} ,处理标题：{name} 失败:{ex}", path, catalog.Name, ex.ToString());
+                    Log.Logger.Error("Processing warehouse failed: {path}, title: {name}, error: {ex}", path, catalog.Name, ex.ToString());
 
                     retryCount++;
                     if (retryCount >= retries)
                     {
-                        Console.WriteLine($"处理 {catalog.Name} 失败，已重试 {retryCount} 次，错误：{ex.Message}");
+                        Console.WriteLine($"Processing {catalog.Name} failed after {retryCount} retries, error: {ex.Message}");
                         throw; // 重试耗尽后向上层抛出异常
                     }
                     else
@@ -379,14 +381,14 @@ public partial class DocumentPendingService
                         {
                             // 质量问题重试间隔较短，因为主要是内容生成问题
                             delayMs = 5000 * retryCount;
-                            Log.Logger.Information("文档质量问题重试 - 仓库: {path}, 标题: {name}, 第{retry}次重试, 等待{delay}ms",
+                            Log.Logger.Information("Document quality issue retry - warehouse: {path}, title: {name}, attempt {retry}, waiting {delay}ms",
                                 path, catalog.Name, retryCount, delayMs);
                         }
                         else
                         {
                             // API限流等其他问题需要更长等待时间
                             delayMs = 10000 * retryCount;
-                            Log.Logger.Information("API异常重试 - 仓库: {path}, 标题: {name}, 第{retry}次重试, 等待{delay}ms",
+                            Log.Logger.Information("API exception retry - warehouse: {path}, title: {name}, attempt {retry}, waiting {delay}ms",
                                 path, catalog.Name, retryCount, delayMs);
                         }
 
@@ -395,7 +397,7 @@ public partial class DocumentPendingService
                 }
             }
 
-            throw new Exception("处理失败，重试多次仍未成功: " + catalog.Name);
+            throw new Exception("Processing failed after multiple retries: " + catalog.Name);
         }
         finally
         {
@@ -403,7 +405,7 @@ public partial class DocumentPendingService
             if (semaphore != null && semaphoreAcquired)
             {
                 semaphore.Release();
-                Log.Logger.Debug("信号量已释放 - {path}/{name}", path, catalog.Name);
+                Log.Logger.Debug("Semaphore released - {path}/{name}", path, catalog.Name);
             }
         }
     }
@@ -433,7 +435,7 @@ public partial class DocumentPendingService
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "修复mermaid语法失败");
+            Log.Error(ex, "Failed to fix mermaid syntax");
         }
     }
 }

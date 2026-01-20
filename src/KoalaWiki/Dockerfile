@@ -39,4 +39,6 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 # Copy built frontend files to wwwroot
 COPY --from=frontend-build /app/dist ./wwwroot
+# Create data directory for SQLite database
+RUN mkdir -p /app/data && chmod 777 /app/data
 ENTRYPOINT ["dotnet", "KoalaWiki.dll"]

@@ -1,7 +1,7 @@
 namespace KoalaWiki.BackendService;
 
 /// <summary>
-/// 访问日志后台处理服务
+/// Access log background processing service
 /// </summary>
 public class AccessLogBackgroundService(
     IServiceProvider serviceProvider,
@@ -11,7 +11,7 @@ public class AccessLogBackgroundService(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("访问日志后台处理服务已启动");
+        logger.LogInformation("Access log background processing service started");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -25,14 +25,14 @@ public class AccessLogBackgroundService(
             }
             catch (OperationCanceledException)
             {
-                // 正常的取消操作，退出循环
+                // Normal cancellation operation, exit loop
                 break;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "处理访问日志时发生错误");
+                logger.LogError(ex, "Error occurred while processing access log");
                 
-                // 发生错误时等待一段时间再继续
+                // Wait for a while before continuing when error occurs
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
@@ -44,7 +44,7 @@ public class AccessLogBackgroundService(
             }
         }
 
-        logger.LogInformation("访问日志后台处理服务已停止");
+        logger.LogInformation("Access log background processing service stopped");
     }
 
     private async Task ProcessLogEntryAsync(AccessLogEntry logEntry)
@@ -71,22 +71,22 @@ public class AccessLogBackgroundService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "处理访问日志条目失败: {ResourceType}/{ResourceId}, Path: {Path}", 
+            logger.LogError(ex, "Failed to process access log entry: {ResourceType}/{ResourceId}, Path: {Path}", 
                 logEntry.ResourceType, logEntry.ResourceId, logEntry.Path);
         }
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        logger.LogInformation("正在停止访问日志后台处理服务...");
+        logger.LogInformation("Stopping access log background processing service...");
         
-        // 处理队列中剩余的日志条目
+        // Process remaining log entries in queue
         var remainingCount = logQueue.Count;
         if (remainingCount > 0)
         {
-            logger.LogInformation("处理队列中剩余的 {Count} 条访问日志", remainingCount);
+            logger.LogInformation("Processing {Count} remaining access log entries in queue", remainingCount);
             
-            var timeout = TimeSpan.FromSeconds(30); // 最多等待30秒
+            var timeout = TimeSpan.FromSeconds(30); // Maximum wait 30 seconds
             var endTime = DateTime.UtcNow.Add(timeout);
             
             while (logQueue.Count > 0 && DateTime.UtcNow < endTime)
@@ -105,7 +105,7 @@ public class AccessLogBackgroundService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "停止时处理访问日志失败");
+                    logger.LogError(ex, "Failed to process access log during stop");
                 }
             }
         }

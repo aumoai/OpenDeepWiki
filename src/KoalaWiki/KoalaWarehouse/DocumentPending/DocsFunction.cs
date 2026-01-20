@@ -27,7 +27,6 @@ public class DocsFunction
             {
                 Name = "MultiEdit"
             })
-
         ];
     }
     
@@ -43,7 +42,7 @@ public class DocsFunction
                                           - Use emojis only when the user explicitly requests it. Avoid adding emojis to the document unless specifically asked to do so.
                                           """)]
     public string Write(
-        [Description("The content to write")] string content)
+        [Description("The content to write. REQUIRED.")] string content)
     {
         // 保存当前版本到历史栈（如果存在内容）
         if (!string.IsNullOrEmpty(Content))
@@ -147,7 +146,7 @@ When making edits:
 - Use replace_all for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.
 """)]
     public string MultiEdit(
-        [Description("Array of edit operations to perform sequentially on")]
+        [Description("Array of edit operations to perform sequentially. REQUIRED")]
         MultiEditInput[] edits)
     {
         if (string.IsNullOrEmpty(Content))
