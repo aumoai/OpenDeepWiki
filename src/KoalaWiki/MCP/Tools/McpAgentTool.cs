@@ -49,19 +49,6 @@ public class McpAgentTool
             throw new Exception("抱歉，您的仓库没有文档，请先生成仓库文档。");
         }
 
-        // 找到是否有相似的提问
-        var similarQuestion = await koala.MCPHistories
-            .AsNoTracking()
-            .Where(x => x.WarehouseId == warehouse.Id && x.Question.ToLower() == question.ToLower())
-            .OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefaultAsync();
-
-        // 如果是3天内的提问，直接返回
-        if (similarQuestion != null && (DateTime.Now - similarQuestion.CreatedAt).TotalDays < 3)
-        {
-            return similarQuestion.Answer;
-        }
-
 
         var kernel =await  KernelFactory.GetKernel(OpenAIOptions.Endpoint,
             OpenAIOptions.ChatApiKey, document.GitPath, OpenAIOptions.DeepResearchModel, false);
@@ -87,6 +74,8 @@ public class McpAgentTool
                         await token.CancelAsync().ConfigureAwait(false);
                     }
                 })));
+                
+                builder.Plugins.AddFromObject(new DocumentationTool(warehouse.Id, koala), "docs");
             }));
 
         var history = new ChatHistory();
@@ -98,7 +87,7 @@ public class McpAgentTool
             new KernelArguments()
             {
                 ["catalogue"] = catalogue,
-                ["repository_url"] = warehouse.Address,
+                ["repository_name"] = warehouse.Name,
             }, OpenAIOptions.ChatModel));
 
         history.AddUserMessage([
@@ -130,7 +119,6 @@ public class McpAgentTool
             {
                 token.Token.ThrowIfCancellationRequested();
 
-                // 发送数据
                 if (chatItem.InnerContent is StreamingChatCompletionUpdate message)
                 {
                     if (string.IsNullOrEmpty(chatItem.Content))
@@ -153,6 +141,61 @@ public class McpAgentTool
                 sb.Append(complete);
             }
 
+            if (string.IsNullOrWhiteSpace(sb.ToString()))
+            {
+                var contextBuilder = new StringBuilder();
+                foreach (var message in history)
+                {
+                    if (message.Role == AuthorRole.System)
+                        continue;
+                    
+                    if (message.Items != null)
+                    {
+                        foreach (var item in message.Items)
+                        {
+                            if (item is FunctionResultContent functionResult)
+                            {
+                                contextBuilder.AppendLine($"<file name=\"{functionResult.FunctionName}\">");
+                                contextBuilder.AppendLine(functionResult.Result?.ToString() ?? string.Empty);
+                                contextBuilder.AppendLine("</file>");
+                                contextBuilder.AppendLine();
+                            }
+                        }
+                    }
+                }
+
+                var cleanHistory = new ChatHistory();
+                cleanHistory.AddUserMessage($"""
+                    You are an AI assistant specialized in software engineering and code analysis.
+                    
+                    Based on the following files from the repository, answer the user's question comprehensively.
+
+                    <files>
+                    {contextBuilder}
+                    </files>
+
+                    <question>{question}</question>
+
+                    Provide a detailed, professional answer based on the file contents above.
+                    """);
+
+                var noToolsKernel = Kernel.CreateBuilder()
+                    .AddOpenAIChatCompletion(OpenAIOptions.DeepResearchModel, new Uri(OpenAIOptions.Endpoint), OpenAIOptions.ChatApiKey)
+                    .Build();
+
+                await foreach (var chatItem in chat.GetStreamingChatMessageContentsAsync(cleanHistory,
+                                   new OpenAIPromptExecutionSettings()
+                                   {
+                                       MaxTokens = DocumentsHelper.GetMaxTokens(OpenAIOptions.ChatModel)
+                                   }, noToolsKernel))
+                {
+                    if (!string.IsNullOrEmpty(chatItem.Content))
+                    {
+                        sb.Append(chatItem.Content);
+                    }
+                }
+            }
+
             var mcpHistory = new MCPHistory()
             {
                 Id = Guid.NewGuid().ToString(),
@@ -171,7 +214,6 @@ public class McpAgentTool
 
             return sb.ToString();
         }
-        // 如果是取消异常
         catch (OperationCanceledException)
         {
             return complete;
